@@ -2,6 +2,7 @@ mod firehose;
 mod parquer_writer;
 
 use anyhow::{Context, Result};
+use clap::Parser;
 use firehose::{FirehoseMessage, decode_body, decode_header, split_frame};
 use futures::StreamExt;
 use parquer_writer::CommitWriter;
@@ -26,10 +27,28 @@ fn firehose_url(cursor: Option<i64>) -> String {
     }
 }
 
+/// bsky-firehose: A Rust client for the Bluesky firehose stream
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Output directory for the flushed frames
+    #[arg(short, long, default_value_t = String::from("./output"))]
+    output_dir: String,
+
+    /// Maximum number of frames to keep in memory before flushing to disk
+    #[arg(short, long, default_value_t = 1000)]
+    batch_size: usize,
+
+    /// Optional starting sequence number to resume from
+    #[arg(short, long)]
+    cursor: Option<i64>,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut commit_writer = CommitWriter::new(1000, "output".to_string());
-    let url = firehose_url(None); // Start from a specific sequence number
+    let args = Args::parse();
+    let mut commit_writer = CommitWriter::new(args.batch_size, args.output_dir);
+    let url = firehose_url(args.cursor); // Start from a specific sequence number
     println!("Connecting to firehose at URL: {}", url);
     let (ws_stream, _) = connect_async(&url).await?;
     let (_, mut read) = ws_stream.split();

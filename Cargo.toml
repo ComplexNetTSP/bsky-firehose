@@ -11,6 +11,7 @@ arrow = "58.3.0"
 atrium-api = "0.25.8"
 base64 = "0.22.1"
 chrono = "0.4.44"
+clap = { version = "4.6.1", features = ["derive"] }
 futures = "0.3.32"
 ipld-core = "0.4.3"
 parquet = "58.3.0"
