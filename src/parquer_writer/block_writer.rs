@@ -176,10 +176,10 @@ impl BlockWriter {
 /// Decode blocks from CommitData's CAR file
 fn decode_blocks(commit: &CommitData) -> Result<Vec<(Cid, Ipld, String)>> {
     let mut cursor = Cursor::new(&commit.blocks);
-    let mut car_reader = CarReader::new(&mut cursor, true)?;
+    let car_reader = CarReader::new(&mut cursor, true)?;
     let mut blocks = Vec::new();
 
-    while let Some(item) = car_reader.next() {
+    for item in car_reader {
         let (cid, block_data) = item?;
         let ipld: Ipld = from_slice(&block_data)?;
 
