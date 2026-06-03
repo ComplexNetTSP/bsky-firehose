@@ -84,7 +84,7 @@ pub fn decode_body(
 ///
 /// Supported event types (event_type in header):
 /// - #commit Repository state update with record changes (creates/updates/deletes)
-/// - #sync	Recover from broken streams or data loss; updates repo to new state without detailed ops
+/// - #sync Recover from broken streams or data loss; updates repo to new state without detailed ops
 /// - #identity Account identity change (handle, signing key, PDS endpoint)
 /// - #account Account status change on a host (active/inactive)
 /// - #info Server info messages

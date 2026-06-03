@@ -36,13 +36,10 @@ async fn main() -> Result<()> {
     while let Some(msg) = read.next().await {
         match msg {
             Ok(tokio_tungstenite::tungstenite::Message::Binary(data)) => {
-                if let Ok(msg) = decode_raw_firehose_message(&data) {
-                    // Process the decoded message
-                    if let FirehoseMessage::Commit(commit) = msg {
-                        if let Err(e) = commit_writer.add_commit(*commit) {
-                            eprintln!("Error writing commit to Parquet: {}", e);
-                        }
-                    }
+                if let Ok(FirehoseMessage::Commit(commit)) = decode_raw_firehose_message(&data)
+                    && let Err(e) = commit_writer.add_commit(*commit)
+                {
+                    eprintln!("Error writing commit to Parquet: {}", e);
                 }
             }
             Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {

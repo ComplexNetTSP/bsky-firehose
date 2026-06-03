@@ -61,9 +61,9 @@ impl CommitWriter {
         let file_path = format!(
             "{}/year={}/month={}/day={}/commit_{}.parquet",
             self.file_path,
-            dt.year() as i32,
-            dt.month() as i32,
-            dt.day() as i32,
+            dt.year(),
+            dt.month(),
+            dt.day(),
             dt.format("%Y_%m_%d_%H_%M_%S")
         );
         //let file_path = format!("{}_{}.parquet", self.file_path, timestamp);
