@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use firehose::{FirehoseMessage, decode_body, decode_header, split_frame};
 use futures::StreamExt;
-use parquer_writer::CommitWriter;
+use parquer_writer::{BlockWriter, CommitWriter};
 use tokio_tungstenite::connect_async;
 
 ///
@@ -47,7 +47,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    let mut commit_writer = CommitWriter::new(args.batch_size, args.output_dir);
+    let mut commit_writer = CommitWriter::new(args.batch_size, &args.output_dir);
+    let mut block_writer = BlockWriter::new(args.batch_size, &args.output_dir);
     let url = firehose_url(args.cursor); // Start from a specific sequence number
     println!("Connecting to firehose at URL: {}", url);
     let (ws_stream, _) = connect_async(&url).await?;
@@ -55,10 +56,14 @@ async fn main() -> Result<()> {
     while let Some(msg) = read.next().await {
         match msg {
             Ok(tokio_tungstenite::tungstenite::Message::Binary(data)) => {
-                if let Ok(FirehoseMessage::Commit(commit)) = decode_raw_firehose_message(&data)
-                    && let Err(e) = commit_writer.add_commit(*commit)
-                {
-                    eprintln!("Error writing commit to Parquet: {}", e);
+                if let Ok(FirehoseMessage::Commit(commit)) = decode_raw_firehose_message(&data) {
+                    if let Err(e) = commit_writer.add_commit(*commit.clone()) {
+                        eprintln!("Error writing commit to Parquet: {}", e);
+                    } else {
+                        if let Err(e) = block_writer.add_commit(*commit) {
+                            eprintln!("Error writing blocks to Parquet: {}", e);
+                        }
+                    }
                 }
             }
             Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {

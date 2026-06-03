@@ -37,11 +37,11 @@ struct ExtractedCommitData {
 // / - Converts CommitData to Arrow arrays for efficient parquet serialization
 impl CommitWriter {
     /// ==== Constructor ====
-    pub fn new(batch_size: usize, file_path: String) -> Self {
+    pub fn new(batch_size: usize, file_path: &str) -> Self {
         Self {
             buffer: Vec::<CommitData>::with_capacity(batch_size),
             batch_size,
-            file_path,
+            file_path: file_path.to_owned(),
         }
     }
 
@@ -59,8 +59,9 @@ impl CommitWriter {
     fn flush(&self, commits: &[CommitData]) -> Result<()> {
         let dt = chrono::Local::now();
         let file_path = format!(
-            "{}/year={}/month={}/day={}/commit_{}.parquet",
+            "{}/{}/year={}/month={}/day={}/commit_{}.parquet",
             self.file_path,
+            "commit",
             dt.year(),
             dt.month(),
             dt.day(),
