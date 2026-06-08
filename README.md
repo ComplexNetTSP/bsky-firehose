@@ -2,17 +2,23 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/ComplexNetTSP/bsky-firehose)](https://github.com/ComplexNetTSP/bsky-firehose/releases)
 
-A Rust application that connects to the Bluesky AT Protocol firehose and writes commit data to Parquet files.
+A Rust application that connects to the Bluesky AT Protocol firehose and writes commit and block data to Parquet files.
 
 **Author**: Vincent Gauthier <vincent.gauthier@telecom-sudparis.eu>
 
 ## Features
 
 - Real-time consumption of Bluesky's WebSocket firehose
-- CBOR message decoding for all firehose event types
-- Efficient Parquet serialization using Apache Arrow
+- CBOR message decoding for firehose events
+- Automatic reconnection with exponential backoff (1s, 2s, 4s...)
+- Dual output: separate Parquet files for commits and blocks
 - Batch writing with configurable batch size
-- Timestamped output files: `commit_YYYY_MM_DD_HH_MIN_SEC.parquet`
+- Timestamped hierarchical output:
+  ```
+  output/
+  ├── commits/year=YYYY/month=MM/day=DD/commit_TIMESTAMP.parquet
+  └── blocks/year=YYYY/month=MM/day=DD/block_TIMESTAMP.parquet
+  ```
 
 ## Prerequisites
 
@@ -22,67 +28,57 @@ A Rust application that connects to the Bluesky AT Protocol firehose and writes 
 ## Installation
 
 ### From Source
-
 ```bash
-git clone https://github.com/vgauthier/bsky-shrike.git
-cd bsky-shrike
+git clone https://github.com/ComplexNetTSP/bsky-firehose.git
+cd bsky-firehose
 cargo build --release
 ```
 
-### Pre-built Binaries
-
-Download from [Releases](https://github.com/vgauthier/bsky-shrike/releases):
-
-- Linux (x86_64)
-- Windows (x86_64)
-- macOS (x86_64, aarch64)
-
 ## Usage
-
 ```bash
-./bsky-firehose --output-dir ./data --batch-size 1000
+./target/release/bsky-firehose --output-dir ./data --batch-size 1000 --cursor 12345
 ```
 
-### Options
-
+## Options
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--output-dir` | `output` | Directory for Parquet files |
-| `--batch-size` | `1000` | Number of commits per file |
-| `--cursor` | `None` | Start from specific sequence number |
+| `-o, --output-dir` | `./output` | Base directory for Parquet files |
+| `-b, --batch-size` | `1000` | Number of records per file |
+| `-c, --cursor` | `None` | Start from specific sequence number |
 
-## Output
+## Output Format
 
-Commit data is written to Parquet files with the naming pattern:
-```
-output/commit_2024_01_15_14_30_00.parquet
-```
+### Commit Files
+Each commit file contains repository state updates with full record changes.
 
-Each file contains up to `--batch-size` commit records with full repository state changes.
+### Block Files
+Each block file contains individual content blocks (posts, likes, etc.) with:
+- Block CID
+- Repository DID
+- Block type (e.g., `app.bsky.feed.post`)
+- Raw JSON representation
 
-## Firehose Event Types
+Files are organized in partitioned directories by date for efficient querying.
 
-| Type | Description |
-|------|-------------|
-| `Commit` | Repository state updates with record changes |
-| `Sync` | Recover from broken streams, update repo to new state |
-| `Identity` | Account identity changes (handle, signing key, PDS) |
-| `Account` | Account status changes (active/inactive) |
-| `Info` | Server info messages |
+## Reconnection
+The client automatically handles disconnections with:
+- Exponential backoff (1s, 2s, 4s, 8s...)
+- Maximum 10 retry attempts
+- Automatic cursor maintenance for resuming
 
 ## Architecture
-
 ```
-WebSocket -> CBOR Decode -> FirehoseMessage -> Commit Filter -> Parquet Writer
+WebSocket → CBOR Decode → Message Parse → [Async Channels] →
+  ├─> Commit Writer (Spawning Task)
+  └─> Block Writer (Spawning Task)
 ```
 
 ## Dependencies
-
 - `atrium-api` - Bluesky AT Protocol types
 - `tokio-tungstenite` - Async WebSocket client
 - `arrow` + `parquet` - Parquet file serialization
+- `ipld-core` + `rs-car-sync` - CAR file decoding
 - `serde-ipld-dagcbor` - CBOR decoding
 
 ## License
-
 MIT
