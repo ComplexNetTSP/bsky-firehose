@@ -20,6 +20,7 @@ pub struct BlockWriter {
     buffer: Vec<BlockRecord>,
     batch_size: usize,
     file_path: String,
+    facets: bool,
 }
 
 /// Extracted block data ready for Arrow array construction
@@ -45,11 +46,12 @@ pub struct BlockRecord {
 
 impl BlockWriter {
     /// Create a new BlockWriter with specified batch size and output directory
-    pub fn new(batch_size: usize, file_path: &str) -> Self {
+    pub fn new(batch_size: usize, file_path: &str, facets: bool) -> Self {
         Self {
             buffer: Vec::with_capacity(batch_size),
             batch_size,
             file_path: file_path.to_owned(),
+            facets: facets,
         }
     }
 
@@ -57,6 +59,9 @@ impl BlockWriter {
     pub fn add_commit(&mut self, commit: CommitData) -> Result<()> {
         let blocks = decode_blocks(&commit)?;
         for (cid, ipld, block_type) in blocks {
+            if block_type == "facets" && self.facets {
+                continue;
+            }
             self.buffer.push(BlockRecord {
                 commit_cid: commit.commit.0.to_string(),
                 repo: commit.repo.to_string(),

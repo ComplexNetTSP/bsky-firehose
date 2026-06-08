@@ -77,8 +77,9 @@ fn span_block_writer(
     mut commit_rx: mpsc::Receiver<CommitData>,
     batch_size: usize,
     output_dir: &str,
+    facets: bool,
 ) {
-    let mut block_writer = BlockWriter::new(batch_size, output_dir);
+    let mut block_writer = BlockWriter::new(batch_size, output_dir, facets);
     spawn(async move {
         while let Some(commit) = commit_rx.recv().await {
             if let Err(e) = block_writer.add_commit(commit) {
@@ -137,6 +138,10 @@ struct Args {
     /// Optional starting sequence number to resume from
     #[arg(short, long)]
     cursor: Option<i64>,
+
+    /// filter out facets blocks
+    #[arg(short, long, default_value_t = false)]
+    facets: bool,
 }
 
 #[tokio::main]
@@ -147,7 +152,12 @@ async fn main() -> Result<()> {
     let (commit_tx, commit_rx) = mpsc::channel(args.batch_size * 2);
     span_commit_writer(commit_rx, args.batch_size, args.output_dir.as_ref());
     let (block_tx, block_rx) = mpsc::channel(args.batch_size * 2);
-    span_block_writer(block_rx, args.batch_size, args.output_dir.as_ref());
+    span_block_writer(
+        block_rx,
+        args.batch_size,
+        args.output_dir.as_ref(),
+        args.facets,
+    );
     run_firehose(commit_tx, block_tx, args.cursor).await;
     Ok(())
 }
