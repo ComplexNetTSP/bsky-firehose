@@ -45,6 +45,7 @@ cargo build --release
 | `-o, --output-dir` | `./output` | Base directory for Parquet files |
 | `-b, --batch-size` | `1000` | Number of records per file |
 | `-c, --cursor` | `None` | Start from specific sequence number |
+| `-f, --facets` | `false` | Filter out facets blocks |
 
 ## Output Format
 
