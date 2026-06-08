@@ -34,7 +34,7 @@ async fn run_firehose(
                             if let Ok(FirehoseMessage::Commit(commit)) =
                                 decode_raw_firehose_message(&data)
                             {
-                                current_cursor = Some(commit.seq.clone());
+                                current_cursor = Some(commit.seq);
                                 if let Err(e) = commit_tx.send(*commit.clone()).await {
                                     eprintln!("Error sending commit to commit writer: {:?}", e);
                                 }
@@ -78,7 +78,7 @@ fn span_block_writer(
     batch_size: usize,
     output_dir: &str,
 ) {
-    let mut block_writer = BlockWriter::new(batch_size, &output_dir);
+    let mut block_writer = BlockWriter::new(batch_size, output_dir);
     spawn(async move {
         while let Some(commit) = commit_rx.recv().await {
             if let Err(e) = block_writer.add_commit(commit) {
@@ -93,7 +93,7 @@ fn span_commit_writer(
     batch_size: usize,
     output_dir: &str,
 ) {
-    let mut commit_writer = CommitWriter::new(batch_size, &output_dir);
+    let mut commit_writer = CommitWriter::new(batch_size, output_dir);
     spawn(async move {
         while let Some(commit) = commit_rx.recv().await {
             if let Err(e) = commit_writer.add_commit(commit) {
