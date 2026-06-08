@@ -51,7 +51,7 @@ impl BlockWriter {
             buffer: Vec::with_capacity(batch_size),
             batch_size,
             file_path: file_path.to_owned(),
-            facets: facets,
+            facets,
         }
     }
 
