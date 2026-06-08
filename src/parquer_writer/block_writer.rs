@@ -188,7 +188,7 @@ fn decode_blocks(commit: &CommitData) -> Result<Vec<(Cid, Ipld, String)>> {
             if let Some(Ipld::String(t)) = map.get("$type") {
                 t.clone()
             } else {
-                "unknown".to_string()
+                "facets".to_string()
             }
         } else {
             "unknown".to_string()
