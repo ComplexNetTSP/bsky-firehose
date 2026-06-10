@@ -38,24 +38,26 @@ async fn run_firehose(
     commit_tx: mpsc::Sender<CommitData>,
     block_tx: mpsc::Sender<CommitData>,
     cursor: Option<i64>,
+    max_retries: u32,
 ) {
     let mut current_cursor = cursor;
     let mut retry_count = 0;
-    const MAX_RETRIES: u32 = 10;
     const BASE_DELAY_MS: u64 = 1000; // 1 second
     loop {
         let url = firehose_url(current_cursor);
         info!(
             "Attempting to connect to firehose (attempt {}/{}, cursor: {:?}) at URL: {}",
             retry_count + 1,
-            MAX_RETRIES,
+            max_retries,
             current_cursor,
             url
         );
+        // connect to bluesky firehose endpoint
         match connect_async(&url).await {
             Ok((ws_stream, _)) => {
                 let (_, mut read) = ws_stream.split();
 
+                // receive message and parse them
                 while let Some(msg) = read.next().await {
                     match msg {
                         Ok(tokio_tungstenite::tungstenite::Message::Binary(data)) => {
@@ -89,7 +91,7 @@ async fn run_firehose(
                                 "WebSocket error (cursor: {:?}, attempt {}/{}): {}",
                                 current_cursor,
                                 retry_count + 1,
-                                MAX_RETRIES,
+                                max_retries,
                                 e
                             );
                             break;
@@ -103,16 +105,17 @@ async fn run_firehose(
                     "Connection failed (cursor: {:?}, attempt {}/{}): {}. Retrying...",
                     current_cursor,
                     retry_count + 1,
-                    MAX_RETRIES,
+                    max_retries,
                     e
                 );
             }
         }
 
-        if retry_count >= MAX_RETRIES {
+        // retry until MAX_RETRIES
+        if retry_count >= max_retries {
             error!(
                 "Max retries ({}) exceeded. Giving up. Last cursor: {:?}",
-                MAX_RETRIES, current_cursor
+                max_retries, current_cursor
             );
             break;
         }
@@ -122,7 +125,7 @@ async fn run_firehose(
         info!(
             "Reconnecting to firehose (attempt {}/{}, cursor: {:?}) in {}ms...",
             retry_count + 1,
-            MAX_RETRIES,
+            max_retries,
             current_cursor,
             delay_ms
         );
@@ -204,15 +207,22 @@ struct Args {
     /// Log file
     #[arg(short, long, default_value_t = String::from("bsky.log"))]
     logfile: String,
+
+    /// Maximum number of retry to connect the bluesky firehose
+    #[arg(short, long, default_value_t = 100)]
+    max_retries: u32,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    // initiliaze logger
     setup_logger(&args.logfile).context("Unable to setup logger")?;
+
     // setup commit writer
     let (commit_tx, commit_rx) = mpsc::channel(args.batch_size * 2);
     span_commit_writer(commit_rx, args.batch_size, args.output_dir.as_ref());
+
     // setup block writer
     let (block_tx, block_rx) = mpsc::channel(args.batch_size * 2);
     span_block_writer(
@@ -223,6 +233,6 @@ async fn main() -> Result<()> {
     );
 
     // stream firehose
-    run_firehose(commit_tx, block_tx, args.cursor).await;
+    run_firehose(commit_tx, block_tx, args.cursor, args.max_retries).await;
     Ok(())
 }

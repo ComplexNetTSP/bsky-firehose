@@ -96,8 +96,14 @@ pub fn decode_header(
     if header.op != 1 {
         anyhow::bail!("Unsupported operation code: {}", header.op);
     }
-    let event_type = FirehoseMessageHeaderEventType::from_str(&header.event_type)
-        .ok_or_else(|| anyhow::anyhow!("Unsupported event type: {}", header.event_type))?;
+    let event_type =
+        FirehoseMessageHeaderEventType::from_str(&header.event_type).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Unsupported event type: {} (header op: {})",
+                header.event_type,
+                header.op
+            )
+        })?;
     Ok((header, event_type))
 }
 

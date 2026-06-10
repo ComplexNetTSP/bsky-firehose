@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use arrow::array::{ArrayRef, Int64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
@@ -172,7 +172,8 @@ impl BlockWriter {
         let arrays = Self::create_arrays(data);
         let batch = RecordBatch::try_new(schema.clone(), arrays)?;
 
-        Self::write_to_parquet(&batch, schema, file_path)?;
+        Self::write_to_parquet(&batch, schema, file_path)
+            .context("Unable to write into parquet file")?;
         info!(
             "Block writer wrote {} blocks to {} (facets_filter: {})",
             block_len, file_path, self.facets
