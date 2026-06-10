@@ -6,11 +6,33 @@ use atrium_api::com::atproto::sync::subscribe_repos::CommitData;
 use clap::Parser;
 use firehose::{FirehoseMessage, decode_body, decode_header, split_frame};
 use futures::StreamExt;
+use log::{error, info};
+use log4rs::{
+    append::file::FileAppender,
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+};
 use parquer_writer::{BlockWriter, CommitWriter};
 use std::time::Duration;
-use tokio::time::sleep;
-use tokio::{spawn, sync::mpsc};
+use tokio::{spawn, sync::mpsc, time::sleep};
 use tokio_tungstenite::connect_async;
+
+fn setup_logger(logfile: &str) -> Result<()> {
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{d} - {l} - {m}\n")))
+        .build(logfile)?;
+
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(
+            Root::builder()
+                .appender("logfile")
+                .build(log::LevelFilter::Info),
+        )?;
+
+    log4rs::init_config(config)?;
+    Ok(())
+}
 
 async fn run_firehose(
     commit_tx: mpsc::Sender<CommitData>,
@@ -22,8 +44,14 @@ async fn run_firehose(
     const MAX_RETRIES: u32 = 10;
     const BASE_DELAY_MS: u64 = 1000; // 1 second
     loop {
-        let url = firehose_url(current_cursor); // Start from a specific sequence number
-        println!("Connecting to firehose at URL: {}", url);
+        let url = firehose_url(current_cursor);
+        info!(
+            "Attempting to connect to firehose (attempt {}/{}, cursor: {:?}) at URL: {}",
+            retry_count + 1,
+            MAX_RETRIES,
+            current_cursor,
+            url
+        );
         match connect_async(&url).await {
             Ok((ws_stream, _)) => {
                 let (_, mut read) = ws_stream.split();
@@ -36,19 +64,34 @@ async fn run_firehose(
                             {
                                 current_cursor = Some(commit.seq);
                                 if let Err(e) = commit_tx.send(*commit.clone()).await {
-                                    eprintln!("Error sending commit to commit writer: {:?}", e);
+                                    error!(
+                                        "Error sending commit (seq: {}) to commit writer: {:?}",
+                                        commit.seq, e
+                                    );
                                 }
-                                if let Err(e) = block_tx.send(*commit).await {
-                                    eprintln!("Error sending commit to block writer: {:?}", e);
+                                if let Err(e) = block_tx.send(*commit.clone()).await {
+                                    error!(
+                                        "Error sending commit (seq: {}) to block writer: {:?}",
+                                        commit.seq, e
+                                    );
                                 }
                             }
                         }
                         Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {
-                            println!("WebSocket closed by server.");
+                            error!(
+                                "WebSocket closed by server (cursor: {:?}). Reconnecting...",
+                                current_cursor
+                            );
                             break;
                         }
                         Err(e) => {
-                            eprintln!("WebSocket error: {}", e);
+                            error!(
+                                "WebSocket error (cursor: {:?}, attempt {}/{}): {}",
+                                current_cursor,
+                                retry_count + 1,
+                                MAX_RETRIES,
+                                e
+                            );
                             break;
                         }
                         _ => {} // Ignore other message types (e.g., Text, Ping, Pong)
@@ -56,18 +99,33 @@ async fn run_firehose(
                 }
             }
             Err(e) => {
-                eprintln!("Connection failed: {}. Retrying...", e);
+                error!(
+                    "Connection failed (cursor: {:?}, attempt {}/{}): {}. Retrying...",
+                    current_cursor,
+                    retry_count + 1,
+                    MAX_RETRIES,
+                    e
+                );
             }
         }
 
         if retry_count >= MAX_RETRIES {
-            eprintln!("Max retries exceeded. Giving up.");
+            error!(
+                "Max retries ({}) exceeded. Giving up. Last cursor: {:?}",
+                MAX_RETRIES, current_cursor
+            );
             break;
         }
 
         // Exponential backoff: 1s, 2s, 4s, 8s, etc.
         let delay_ms = BASE_DELAY_MS * 2u64.pow(retry_count);
-        eprintln!("Reconnecting in {}ms...", delay_ms);
+        info!(
+            "Reconnecting to firehose (attempt {}/{}, cursor: {:?}) in {}ms...",
+            retry_count + 1,
+            MAX_RETRIES,
+            current_cursor,
+            delay_ms
+        );
         sleep(Duration::from_millis(delay_ms)).await;
         retry_count += 1;
     }
@@ -142,15 +200,20 @@ struct Args {
     /// filter out facets blocks
     #[arg(short, long, default_value_t = false)]
     facets: bool,
+
+    /// Log file
+    #[arg(short, long, default_value_t = String::from("bsky.log"))]
+    logfile: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-
-    // Create channels for communication
+    setup_logger(&args.logfile).context("Unable to setup looger")?;
+    // setup commit writer
     let (commit_tx, commit_rx) = mpsc::channel(args.batch_size * 2);
     span_commit_writer(commit_rx, args.batch_size, args.output_dir.as_ref());
+    // setup block writer
     let (block_tx, block_rx) = mpsc::channel(args.batch_size * 2);
     span_block_writer(
         block_rx,
@@ -158,6 +221,8 @@ async fn main() -> Result<()> {
         args.output_dir.as_ref(),
         args.facets,
     );
+
+    // stream firehose
     run_firehose(commit_tx, block_tx, args.cursor).await;
     Ok(())
 }

@@ -14,6 +14,8 @@ chrono = "0.4.44"
 clap = { version = "4.6.1", features = ["derive"] }
 futures = "0.3.32"
 ipld-core = "0.4.3"
+log = "0.4.32"
+log4rs = "1.4.0"
 parquet = "58.3.0"
 rs-car-sync = "0.5.1"
 serde = "1.0.228"

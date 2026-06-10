@@ -4,11 +4,11 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use atrium_api::com::atproto::sync::subscribe_repos::CommitData;
 use chrono::Datelike;
+use log::info;
 use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
 use std::{fs::File, path::Path, sync::Arc};
-
 pub struct CommitWriter {
     buffer: Vec<CommitData>,
     batch_size: usize,
@@ -199,7 +199,11 @@ impl CommitWriter {
         let batch = RecordBatch::try_new(schema.clone(), arrays)?;
 
         Self::write_to_parquet(&batch, schema, file_path)?;
-        println!("Written {} commits to {}", commits.len(), file_path);
+        info!(
+            "Commit writer wrote {} commits to {}",
+            commits.len(),
+            file_path
+        );
         Ok(())
     }
 }

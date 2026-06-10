@@ -7,6 +7,7 @@ use base64::Engine;
 use chrono::Datelike;
 use ipld_core::cid::Cid;
 use ipld_core::ipld::Ipld;
+use log::info;
 use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
@@ -14,7 +15,6 @@ use rs_car_sync::CarReader;
 use serde_ipld_dagcbor::from_slice;
 use std::io::Cursor;
 use std::{fs::File, path::Path, sync::Arc};
-
 /// Buffers blocks from CommitData and writes to Parquet files in batches
 pub struct BlockWriter {
     buffer: Vec<BlockRecord>,
@@ -91,7 +91,7 @@ impl BlockWriter {
             dt.day(),
             dt.format("%Y_%m_%d_%H_%M_%S")
         );
-        Self::serialize_blocks_to_parquet(blocks, &file_path)?;
+        self.serialize_blocks_to_parquet(blocks, &file_path)?;
         Ok(())
     }
 
@@ -165,7 +165,7 @@ impl BlockWriter {
     }
 
     /// Full pipeline: extract data, create arrays, write to Parquet
-    fn serialize_blocks_to_parquet(blocks: Vec<BlockRecord>, file_path: &str) -> Result<()> {
+    fn serialize_blocks_to_parquet(&self, blocks: Vec<BlockRecord>, file_path: &str) -> Result<()> {
         let block_len = blocks.len();
         let schema = Self::build_schema();
         let data = Self::extract_data(blocks);
@@ -173,7 +173,10 @@ impl BlockWriter {
         let batch = RecordBatch::try_new(schema.clone(), arrays)?;
 
         Self::write_to_parquet(&batch, schema, file_path)?;
-        println!("Written {} blocks to {}", block_len, file_path);
+        info!(
+            "Block writer wrote {} blocks to {} (facets_filter: {})",
+            block_len, file_path, self.facets
+        );
         Ok(())
     }
 }
