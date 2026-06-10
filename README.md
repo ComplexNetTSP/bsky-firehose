@@ -1,6 +1,7 @@
 # Bluesky Firehose Consumer
 
 [![GitHub Release](https://img.shields.io/github/v/release/ComplexNetTSP/bsky-firehose)](https://github.com/ComplexNetTSP/bsky-firehose/releases)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ComplexNetTSP/bsky-firehose/build.yaml)](https://github.com/ComplexNetTSP/bsky-firehose/actions)
 
 A Rust application that connects to the Bluesky AT Protocol firehose and writes commit and block data to Parquet files.
 
