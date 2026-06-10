@@ -209,7 +209,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    setup_logger(&args.logfile).context("Unable to setup looger")?;
+    setup_logger(&args.logfile).context("Unable to setup logger")?;
     // setup commit writer
     let (commit_tx, commit_rx) = mpsc::channel(args.batch_size * 2);
     span_commit_writer(commit_rx, args.batch_size, args.output_dir.as_ref());

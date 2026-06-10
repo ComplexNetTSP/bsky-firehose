@@ -46,6 +46,7 @@ cargo build --release
 | `-b, --batch-size` | `1000` | Number of records per file |
 | `-c, --cursor` | `None` | Start from specific sequence number |
 | `-f, --facets` | `false` | Filter out facets blocks |
+| `-l, --logfile` | `bsky.log` | Log file path for application logs |
 
 ## Output Format
 
