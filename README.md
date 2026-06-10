@@ -47,6 +47,7 @@ cargo build --release
 | `-c, --cursor` | `None` | Start from specific sequence number |
 | `-f, --facets` | `false` | Filter out facets blocks |
 | `-l, --logfile` | `bsky.log` | Log file path for application logs |
+| `-m, --max_retries` | 100 | maxium number of retru attemps |
 
 ## Output Format
 
@@ -65,7 +66,7 @@ Files are organized in partitioned directories by date for efficient querying.
 ## Reconnection
 The client automatically handles disconnections with:
 - Exponential backoff (1s, 2s, 4s, 8s...)
-- Maximum 10 retry attempts
+- Maximum retry attempts (defined in parameters)
 - Automatic cursor maintenance for resuming
 
 ## Architecture
