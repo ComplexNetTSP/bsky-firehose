@@ -52,9 +52,12 @@ impl CommitWriter {
 
     pub async fn add_commit(&mut self, commit: CommitData) -> Result<()> {
         let cursor = commit.seq;
-        db_insert_cursor(&self.db_conn, cursor).await?;
+        // push commit to buffer
         self.buffer.push(commit);
+        // flush the buffer to disk if full
         if self.buffer.len() >= self.batch_size {
+            // store the last cursor received
+            db_insert_cursor(&self.db_conn, cursor).await?;
             let commits = self.buffer.drain(..).collect::<Vec<_>>();
             self.flush(&commits)?;
         }
