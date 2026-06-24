@@ -1,10 +1,11 @@
-mod firehose;
-mod parquer_writer;
-
 use anyhow::{Context, Result};
 use atrium_api::com::atproto::sync::subscribe_repos::CommitData;
+use bsky_firehose::{
+    db::{ops::check_for_last_cursor, setup::get_conn},
+    firehose::{FirehoseMessage, decode_body, decode_header, split_frame},
+    parquer_writer::{BlockWriter, CommitWriter},
+};
 use clap::Parser;
-use firehose::{FirehoseMessage, decode_body, decode_header, split_frame};
 use futures::StreamExt;
 use log::{error, info};
 use log4rs::{
@@ -12,10 +13,10 @@ use log4rs::{
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
-use parquer_writer::{BlockWriter, CommitWriter};
 use std::time::Duration;
 use tokio::{spawn, sync::mpsc, time::sleep};
 use tokio_tungstenite::connect_async;
+use turso::Connection;
 
 fn setup_logger(logfile: &str) -> Result<()> {
     let logfile = FileAppender::builder()
@@ -144,7 +145,7 @@ fn span_block_writer(
     spawn(async move {
         while let Some(commit) = commit_rx.recv().await {
             if let Err(e) = block_writer.add_commit(commit) {
-                eprintln!("Error: {}", e);
+                error!("Error when processing block: {}", e);
             }
         }
     });
@@ -154,12 +155,13 @@ fn span_commit_writer(
     mut commit_rx: mpsc::Receiver<CommitData>,
     batch_size: usize,
     output_dir: &str,
+    db_conn: Connection,
 ) {
-    let mut commit_writer = CommitWriter::new(batch_size, output_dir);
+    let mut commit_writer = CommitWriter::new(batch_size, output_dir, db_conn);
     spawn(async move {
         while let Some(commit) = commit_rx.recv().await {
-            if let Err(e) = commit_writer.add_commit(commit) {
-                eprintln!("Error: {}", e);
+            if let Err(e) = commit_writer.add_commit(commit).await {
+                error!("Error when processing commit: {}", e);
             }
         }
     });
@@ -218,10 +220,22 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     // initiliaze logger
     setup_logger(&args.logfile).context("Unable to setup logger")?;
-
+    // fetch the cursor pass in argument or retrived it from database
+    let cursor: Option<i64> = match args.cursor {
+        Some(cursor) => Some(cursor),
+        None => check_for_last_cursor("./cursor.db").await,
+    };
+    info!("Start fetching commit from cursor index: {:?}", cursor);
+    // initialise database
+    let conn = get_conn("./cursor.db").await?;
     // setup commit writer
     let (commit_tx, commit_rx) = mpsc::channel(args.batch_size * 2);
-    span_commit_writer(commit_rx, args.batch_size, args.output_dir.as_ref());
+    span_commit_writer(
+        commit_rx,
+        args.batch_size,
+        args.output_dir.as_ref(),
+        conn.clone(),
+    );
 
     // setup block writer
     let (block_tx, block_rx) = mpsc::channel(args.batch_size * 2);
@@ -233,6 +247,6 @@ async fn main() -> Result<()> {
     );
 
     // stream firehose
-    run_firehose(commit_tx, block_tx, args.cursor, args.max_retries).await;
+    run_firehose(commit_tx, block_tx, cursor, args.max_retries).await;
     Ok(())
 }

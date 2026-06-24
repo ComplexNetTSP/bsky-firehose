@@ -1,3 +1,4 @@
+use crate::db::ops::db_insert_cursor;
 use anyhow::Result;
 use arrow::array::{ArrayRef, BooleanArray, Int64Array, ListBuilder, StringArray, StringBuilder};
 use arrow::datatypes::{DataType, Field, Schema};
@@ -9,10 +10,13 @@ use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
 use std::{fs::File, path::Path, sync::Arc};
+use turso::Connection;
+
 pub struct CommitWriter {
     buffer: Vec<CommitData>,
     batch_size: usize,
     file_path: String,
+    db_conn: Connection,
 }
 
 /// Extracted data from CommitData ready for Arrow array construction
@@ -37,17 +41,19 @@ struct ExtractedCommitData {
 // / - Converts CommitData to Arrow arrays for efficient parquet serialization
 impl CommitWriter {
     /// ==== Constructor ====
-    pub fn new(batch_size: usize, file_path: &str) -> Self {
+    pub fn new(batch_size: usize, file_path: &str, db_conn: Connection) -> Self {
         Self {
             buffer: Vec::<CommitData>::with_capacity(batch_size),
             batch_size,
             file_path: file_path.to_owned(),
+            db_conn,
         }
     }
 
-    pub fn add_commit(&mut self, commit: CommitData) -> Result<()> {
+    pub async fn add_commit(&mut self, commit: CommitData) -> Result<()> {
+        let cursor = commit.seq;
+        db_insert_cursor(&self.db_conn, cursor).await?;
         self.buffer.push(commit);
-
         if self.buffer.len() >= self.batch_size {
             let commits = self.buffer.drain(..).collect::<Vec<_>>();
             self.flush(&commits)?;
@@ -67,7 +73,6 @@ impl CommitWriter {
             dt.day(),
             dt.format("%Y_%m_%d_%H_%M_%S")
         );
-        //let file_path = format!("{}_{}.parquet", self.file_path, timestamp);
         Self::serialize_commits_to_parquet(commits.to_vec(), &file_path)?;
         Ok(())
     }
