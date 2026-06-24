@@ -84,5 +84,19 @@ WebSocket → CBOR Decode → Message Parse → [Async Channels] →
 - `ipld-core` + `rs-car-sync` - CAR file decoding
 - `serde-ipld-dagcbor` - CBOR decoding
 
+## Changelog
+
+### v0.1.5
+- ✨ **Database Integration**: Added Turso SQLite database module for cursor persistence
+  - New `db` module with connection management (`setup.rs`) and operations (`ops.rs`)
+  - Stores and retrieves the last processed sequence number to resume from the correct position
+- 🔧 **New CLI Option**: `--max-retries` (default: 100) to configure maximum reconnection attempts
+- 📝 **Logging**: Added log file support via `log4rs` with configurable output path (`--logfile`)
+- 🐞 **Bug Fixes & Improvements**:
+  - Fixed error messages and context in firehose connection handling
+  - Improved CBOR decoding robustness for firehose messages
+  - Enhanced commit and block writer error handling
+- 📦 **Dependencies**: Updated to Rust 1.92.0 and latest crate versions
+
 ## License
 MIT
