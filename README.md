@@ -86,6 +86,11 @@ WebSocket → CBOR Decode → Message Parse → [Async Channels] →
 
 ## Changelog
 
+### v0.1.5
+- ✨ **Datetime Parsing**: Added proper RFC 3339 datetime parsing from commit timestamps in both CommitWriter and BlockWriter modules to reference the parquet file base on the datetime of the last commit received
+- 🐞 **Error Handling**: Improved error handling and logging in main in order to account for network IO errors
+
+
 ### v0.1.4
 - ✨ **Database Integration**: Added Turso SQLite database module for cursor persistence
   - New `db` module with connection management (`setup.rs`) and operations (`ops.rs`)
