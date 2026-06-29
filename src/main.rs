@@ -15,7 +15,7 @@ use log4rs::{
 };
 use std::time::Duration;
 use tokio::{spawn, sync::mpsc, time::sleep};
-use tokio_tungstenite::connect_async;
+use tokio_tungstenite::{connect_async, tungstenite::Error};
 use turso::Connection;
 
 fn setup_logger(logfile: &str) -> Result<()> {
@@ -53,7 +53,7 @@ async fn run_firehose(
             current_cursor,
             url
         );
-        // connect to bluesky firehose endpoint
+        // Connect to bluesky firehose endpoint
         match connect_async(&url).await {
             Ok((ws_stream, _)) => {
                 let (_, mut read) = ws_stream.split();
@@ -87,28 +87,23 @@ async fn run_firehose(
                             );
                             break;
                         }
-                        Err(e) => {
-                            error!(
-                                "WebSocket error (cursor: {:?}, attempt {}/{}): {}",
-                                current_cursor,
-                                retry_count + 1,
-                                max_retries,
-                                e
-                            );
-                            break;
-                        }
+                        Err(e) => match e {
+                            Error::Io(io_err) => {
+                                error!("Network error shut down: {}", io_err);
+                                panic!("Network error shut down");
+                            }
+                            _ => {
+                                error!("Something when wrong retry");
+                                break;
+                            }
+                        },
                         _ => {} // Ignore other message types (e.g., Text, Ping, Pong)
                     }
                 }
             }
             Err(e) => {
-                error!(
-                    "Connection failed (cursor: {:?}, attempt {}/{}): {}. Retrying...",
-                    current_cursor,
-                    retry_count + 1,
-                    max_retries,
-                    e
-                );
+                error!("connect_async error: {}, retry...", e);
+                break;
             }
         }
 
