@@ -4,7 +4,7 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use atrium_api::com::atproto::sync::subscribe_repos::CommitData;
 use base64::Engine;
-use chrono::Datelike;
+use chrono::{self, Datelike, Utc};
 use ipld_core::cid::Cid;
 use ipld_core::ipld::Ipld;
 use log::info;
@@ -58,6 +58,10 @@ impl BlockWriter {
     /// Add blocks from a CommitData by decoding its CAR file
     pub fn add_commit(&mut self, commit: CommitData) -> Result<()> {
         let blocks = decode_blocks(&commit)?;
+        let last_datetime: chrono::DateTime<Utc> =
+            chrono::DateTime::parse_from_rfc3339(commit.time.as_str())
+                .expect("Failed to parse commit time")
+                .with_timezone(&Utc);
         for (cid, ipld, block_type) in blocks {
             if block_type == "facets" && self.facets {
                 continue;
@@ -74,14 +78,13 @@ impl BlockWriter {
 
         if self.buffer.len() >= self.batch_size {
             let blocks = self.buffer.drain(..).collect::<Vec<_>>();
-            self.flush(blocks)?;
+            self.flush(blocks, last_datetime)?;
         }
         Ok(())
     }
 
     /// Flush buffered blocks to Parquet file
-    fn flush(&self, blocks: Vec<BlockRecord>) -> Result<()> {
-        let dt = chrono::Local::now();
+    fn flush(&self, blocks: Vec<BlockRecord>, dt: chrono::DateTime<Utc>) -> Result<()> {
         let file_path = format!(
             "{}/{}/year={}/month={}/day={}/block_{}.parquet",
             self.file_path,

@@ -4,7 +4,7 @@ use arrow::array::{ArrayRef, BooleanArray, Int64Array, ListBuilder, StringArray,
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use atrium_api::com::atproto::sync::subscribe_repos::CommitData;
-use chrono::Datelike;
+use chrono::{self, Datelike, Utc};
 use log::info;
 use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
@@ -52,6 +52,10 @@ impl CommitWriter {
 
     pub async fn add_commit(&mut self, commit: CommitData) -> Result<()> {
         let cursor = commit.seq;
+        let last_datetime: chrono::DateTime<Utc> =
+            chrono::DateTime::parse_from_rfc3339(commit.time.as_str())
+                .expect("Failed to parse commit time")
+                .with_timezone(&Utc);
         // push commit to buffer
         self.buffer.push(commit);
         // flush the buffer to disk if full
@@ -59,14 +63,13 @@ impl CommitWriter {
             // store the last cursor received
             db_insert_cursor(&self.db_conn, cursor).await?;
             let commits = self.buffer.drain(..).collect::<Vec<_>>();
-            self.flush(&commits)?;
+            self.flush(&commits, last_datetime)?;
         }
         Ok(())
     }
 
     /// ==== Batching ====
-    fn flush(&self, commits: &[CommitData]) -> Result<()> {
-        let dt = chrono::Local::now();
+    fn flush(&self, commits: &[CommitData], dt: chrono::DateTime<Utc>) -> Result<()> {
         let file_path = format!(
             "{}/{}/year={}/month={}/day={}/commit_{}.parquet",
             self.file_path,
