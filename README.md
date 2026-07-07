@@ -86,6 +86,12 @@ WebSocket → CBOR Decode → Message Parse → [Async Channels] →
 
 ## Changelog
 
+### v0.1.6
+- 🐞 **Clippy Fixes**: Fixed clippy linting errors in commit and block writers
+- 🐞 **Network Error Handling**: Fixed panic when network errors occur during firehose connection
+- 📁 **File Naming**: Updated file naming structure to use datetime of the last commit received for more accurate file organization
+- 🔧 **Error Improvements**: Enhanced error handling and robustness in main module
+
 ### v0.1.5
 - ✨ **Datetime Parsing**: Added proper RFC 3339 datetime parsing from commit timestamps in both CommitWriter and BlockWriter modules to reference the parquet file base on the datetime of the last commit received
 - 🐞 **Error Handling**: Improved error handling and logging in main in order to account for network IO errors
