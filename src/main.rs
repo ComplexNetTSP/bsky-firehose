@@ -89,6 +89,11 @@ async fn run_firehose(
                         }
                         Err(e) => match e {
                             Error::Io(io_err) => {
+                                if io_err.kind() == std::io::ErrorKind::ConnectionReset {
+                                    // this is a recoverable error
+                                    error!("Network error: {}, reconnecting...", io_err);
+                                    break;
+                                }
                                 error!("Network error shut down: {}", io_err);
                                 panic!("Network error shut down");
                             }
