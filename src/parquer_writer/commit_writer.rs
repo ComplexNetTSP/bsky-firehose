@@ -62,7 +62,7 @@ impl CommitWriter {
         if self.buffer.len() >= self.batch_size {
             // store the last cursor received
             db_insert_cursor(&self.db_conn, cursor).await?;
-            let commits = self.buffer.drain(..).collect::<Vec<_>>();
+            let commits = std::mem::take(&mut self.buffer);
             self.flush(&commits, last_datetime)?;
         }
         Ok(())

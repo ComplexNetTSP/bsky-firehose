@@ -77,7 +77,7 @@ impl BlockWriter {
         }
 
         if self.buffer.len() >= self.batch_size {
-            let blocks = self.buffer.drain(..).collect::<Vec<_>>();
+            let blocks = std::mem::take(&mut self.buffer);
             self.flush(blocks, last_datetime)?;
         }
         Ok(())
