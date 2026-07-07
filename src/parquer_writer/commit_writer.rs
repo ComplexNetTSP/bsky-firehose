@@ -63,13 +63,13 @@ impl CommitWriter {
             // store the last cursor received
             db_insert_cursor(&self.db_conn, cursor).await?;
             let commits = std::mem::take(&mut self.buffer);
-            self.flush(&commits, last_datetime)?;
+            self.flush(commits, last_datetime)?;
         }
         Ok(())
     }
 
     /// ==== Batching ====
-    fn flush(&self, commits: &[CommitData], dt: chrono::DateTime<Utc>) -> Result<()> {
+    fn flush(&self, commits: Vec<CommitData>, dt: chrono::DateTime<Utc>) -> Result<()> {
         let file_path = format!(
             "{}/{}/year={}/month={}/day={}/commit_{}.parquet",
             self.file_path,
