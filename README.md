@@ -86,6 +86,10 @@ WebSocket → CBOR Decode → Message Parse → [Async Channels] →
 
 ## Changelog
 
+### v0.1.7
+- 🔧 **WebSocket Error Handling**: Enhanced error handling for WebSocket connections with specific handling for TLS, HTTP, and Protocol errors
+- 🐞 **Flush Method**: Fixed flush method parameter type in CommitWriter for better memory management
+
 ### v0.1.6
 - 🐞 **Clippy Fixes**: Fixed clippy linting errors in commit and block writers
 - 🐞 **Network Error Handling**: Fixed panic when network errors occur during firehose connection
