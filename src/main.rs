@@ -97,6 +97,17 @@ async fn run_firehose(
                                 error!("Network error shut down: {}", io_err);
                                 panic!("Network error shut down");
                             }
+                            Error::Tls(tls_err) => {
+                                error!("TLS error: {:?}, reconnecting...", tls_err);
+                                break;
+                            }
+                            Error::Http(response) => {
+                                error!("HTTP error: {}, reconnecting...", response.status());
+                                break;
+                            }
+                            Error::Protocol(p) => {
+                                error!("WebSocket protocol violation: {:?}, reconnecting...", p);
+                            }
                             _ => {
                                 error!("Something when wrong retry");
                                 break;
