@@ -107,6 +107,7 @@ async fn run_firehose(
                             }
                             Error::Protocol(p) => {
                                 error!("WebSocket protocol violation: {:?}, reconnecting...", p);
+                                break;
                             }
                             _ => {
                                 error!("Something when wrong retry");
