@@ -48,7 +48,7 @@ cargo build --release
 | `-c, --cursor` | `None` | Start from specific sequence number |
 | `-f, --facets` | `false` | Filter out facets blocks |
 | `-l, --logfile` | `bsky.log` | Log file path for application logs |
-| `-m, --max_retries` | 100 | maxium number of retru attemps |
+| `-m, --max_retries` | 100 | maxium number of retries attemps |
 
 ## Output Format
 
