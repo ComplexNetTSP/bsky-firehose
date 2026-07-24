@@ -133,8 +133,8 @@ async fn run_firehose(
             break;
         }
 
-        // Exponential backoff: 1s, 2s, 4s, 8s, etc.
-        let delay_ms = BASE_DELAY_MS * 2u64.pow(retry_count);
+        // Linear backoff: 1s, 2s, 3s, 4s, etc.
+        let delay_ms = BASE_DELAY_MS * (retry_count as u64 + 1);
         info!(
             "Reconnecting to firehose (attempt {}/{}, cursor: {:?}) in {}ms...",
             retry_count + 1,

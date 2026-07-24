@@ -11,7 +11,7 @@ A Rust application that connects to the Bluesky AT Protocol firehose and writes 
 
 - Real-time consumption of Bluesky's WebSocket firehose
 - CBOR message decoding for firehose events
-- Automatic reconnection with exponential backoff (1s, 2s, 4s...)
+- Automatic reconnection with linear backoff (1s, 2s, 3s...)
 - Dual output: separate Parquet files for commits and blocks
 - Batch writing with configurable batch size
 - Timestamped hierarchical output:
@@ -66,7 +66,7 @@ Files are organized in partitioned directories by date for efficient querying.
 
 ## Reconnection
 The client automatically handles disconnections with:
-- Exponential backoff (1s, 2s, 4s, 8s...)
+- Linear backoff (1s, 2s, 3s, 4s...)
 - Maximum retry attempts (defined in parameters)
 - Automatic cursor maintenance for resuming
 
@@ -85,6 +85,9 @@ WebSocket → CBOR Decode → Message Parse → [Async Channels] →
 - `serde-ipld-dagcbor` - CBOR decoding
 
 ## Changelog
+
+### v0.1.8
+- 🔧 **Backoff Strategy**: Changed reconnection backoff from exponential (1s, 2s, 4s...) to linear (1s, 2s, 3s...) for slower, more predictable retry delays
 
 ### v0.1.7
 - 🔧 **WebSocket Error Handling**: Enhanced error handling for WebSocket connections with specific handling for TLS, HTTP, and Protocol errors
